@@ -1,0 +1,1 @@
+# pengenalanpola_segformer26
