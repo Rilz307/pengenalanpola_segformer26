@@ -33,20 +33,28 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# INISIALISASI GOOGLE EARTH ENGINE (LOKAL & CLOUD SAFE)
+# INISIALISASI GOOGLE EARTH ENGINE (AKUN PRIBADI / CLOUD SAFE)
 # ---------------------------------------------------------
 try:
     if "EARTHENGINE_TOKEN" in st.secrets:
-        # Berjalan di Streamlit Cloud (Membutuhkan file Secrets)
-        token_dict = json.loads(st.secrets["EARTHENGINE_TOKEN"])
-        with open("ee_tmp_token.json", "w") as f:
-            json.dump(token_dict, f)
-        os.environ['EARTHENGINE_SERVICE_ACCOUNT'] = token_dict.get('client_email', '')
-        ee.Initialize(credentials=ee.ServiceAccountCredentials('', 'ee_tmp_token.json'), project='endless-radar-444902-f9')
+        # 1. Jika berjalan di Streamlit Cloud, ambil teks token dari Secrets
+        token_str = st.secrets["EARTHENGINE_TOKEN"]
+        
+        # 2. Buat folder konfigurasi earthengine tiruan di dalam server Linux Cloud
+        ee_config_dir = os.path.expanduser('~/.config/earthengine/')
+        os.makedirs(ee_config_dir, exist_ok=True)
+        
+        # 3. Tulis isi token tersebut menjadi file fisik bernama 'credentials'
+        with open(os.path.join(ee_config_dir, 'credentials'), 'w') as f:
+            f.write(token_str)
+            
+        # 4. Inisialisasi menggunakan ID project Anda
+        ee.Initialize(project='endless-radar-444902-f9')
     else:
-        # Berjalan di Local
+        # Jika berjalan di Laptop Lokal Anda
         ee.Initialize(project='endless-radar-444902-f9')
 except Exception as e:
+    # Ini HANYA berjalan jika langkah di atas gagal total
     st.warning("Meminta autentikasi Google Earth Engine...")
     ee.Authenticate()
     ee.Initialize(project='endless-radar-444902-f9')
