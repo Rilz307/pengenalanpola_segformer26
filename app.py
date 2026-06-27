@@ -317,7 +317,7 @@ if map_data["all_drawings"]:
                    .select(['VV', 'VH']))
             
             def get_date(img):
-                return ee.Feature(None, {'date': img.date().format('YYYY-MM-DD')})
+                return ee.Feature(None, {'date': img.date().format('YYYY-MM-dd')})
             
             try:
                 date_features = col.map(get_date).distinct('date').aggregate_array('date').getInfo()
