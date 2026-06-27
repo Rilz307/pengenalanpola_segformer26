@@ -17,6 +17,7 @@ from scipy.ndimage import uniform_filter
 from transformers import SegformerForSemanticSegmentation
 import os
 import datetime
+import json
 
 # =====================================================
 # PAGE CONFIG & INIT
@@ -31,13 +32,24 @@ st.markdown(
     """
 )
 
-# Inisialisasi Google Earth Engine
+# ---------------------------------------------------------
+# INISIALISASI GOOGLE EARTH ENGINE (LOKAL & CLOUD SAFE)
+# ---------------------------------------------------------
 try:
-    ee.Initialize(project='project-pengenalanpola') # Ganti sesuai nama project GEE Anda
+    if "EARTHENGINE_TOKEN" in st.secrets:
+        # Berjalan di Streamlit Cloud (Membutuhkan file Secrets)
+        token_dict = json.loads(st.secrets["EARTHENGINE_TOKEN"])
+        with open("ee_tmp_token.json", "w") as f:
+            json.dump(token_dict, f)
+        os.environ['EARTHENGINE_SERVICE_ACCOUNT'] = token_dict.get('client_email', '')
+        ee.Initialize(credentials=ee.ServiceAccountCredentials('', 'ee_tmp_token.json'), project='endless-radar-444902-f9')
+    else:
+        # Berjalan di Local
+        ee.Initialize(project='endless-radar-444902-f9')
 except Exception as e:
     st.warning("Meminta autentikasi Google Earth Engine...")
     ee.Authenticate()
-    ee.Initialize(project='project-pengenalanpola')
+    ee.Initialize(project='endless-radar-444902-f9')
 
 MODEL_PATH = "model/finetune_best.pth"
 
@@ -208,6 +220,31 @@ def preprocess_s1_for_model(raw_img: np.ndarray) -> np.ndarray:
 # =====================================================
 @st.cache_resource
 def load_model():
+    # ---------------------------------------------------------
+    # LOGIKA AUTO-DOWNLOAD DARI HUGGING FACE
+    # ---------------------------------------------------------
+    if not os.path.exists("model"):
+        os.makedirs("model")
+        
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner("📥 Mengunduh Bobot Model SegFormer dari Hugging Face Hub (Hanya saat startup)..."):
+            URL_HF_MODEL = "https://huggingface.co/aiairilril/segformer-sarflood-pola26/resolve/main/finetune_best.pth"
+            
+            try:
+                response = requests.get(URL_HF_MODEL, stream=True)
+                if response.status_code == 200:
+                    with open(MODEL_PATH, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                else:
+                    st.error(f"Gagal mengunduh model dari Hugging Face. Status: {response.status_code}")
+                    st.stop()
+            except Exception as e:
+                st.error(f"Gagal melakukan request unduhan ke Hugging Face: {str(e)}")
+                st.stop()
+    # ---------------------------------------------------------
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint = torch.load(MODEL_PATH, map_location=device)
     model = SARSegFormer(num_labels=2, backbone='nvidia/mit-b2')
