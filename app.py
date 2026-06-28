@@ -364,11 +364,23 @@ if map_data["all_drawings"]:
                             raw_img = src.read([1, 2]).astype(np.float32)
                             H, W = src.height, src.width
                         
-                        os.remove(tmp_path) 
+                        # =====================================================
+                        # 🔥 SATPAM CONSTRAINT: BLOKIR USER JIKA AREA TERLALU KECIL
+                        # =====================================================
+                        if H < 256 or W < 256:
+                            st.error(
+                                f"❌ **Area Terlalu Kecil!** Dimensi citra yang Anda pilih hanya **{W} x {H}** piksel. "
+                                f"Model SegFormer membutuhkan area minimal **256 x 256** piksel agar deteksi kontekstual berfungsi. "
+                                f"Silakan bersihkan gambar kotak lama, lalu gambar kotak baru yang lebih luas!"
+                            )
+                            os.remove(tmp_path) # Hapus file sampah biar gak menuhin server
+                            st.stop() # Paksa Streamlit berhenti di sini, jangan lanjut ke inferensi
+                        # =====================================================
+
                         st.success(f"Berhasil menarik citra (Resolusi {W}x{H} piksel)")
 
                         # =============================================
-                        # INFERENSI MODEL
+                        # INFERENSI MODEL (Akan aman dari crash broadcasting)
                         # =============================================
                         with st.spinner("Memproses algoritma Otsu dan Deep Learning..."):
                             otsu_mask, otsu_thr = compute_otsu_label(raw_img[1])
